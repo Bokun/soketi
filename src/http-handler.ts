@@ -636,9 +636,9 @@ export class HttpHandler {
 
     protected sendJson(res: HttpResponse, data: any, status: RecognizedString = '200 OK') {
         try {
-            return res.writeStatus(status)
+            return res.cork(() => res.writeStatus(status)
                 .writeHeader('Content-Type', 'application/json')
-                .end(JSON.stringify(data), true);
+                .end(JSON.stringify(data), true));
         } catch (e) {
             Log.warningTitle('Response could not be sent');
             Log.warning(e);
@@ -647,7 +647,7 @@ export class HttpHandler {
 
     protected send(res: HttpResponse, data: RecognizedString, status: RecognizedString = '200 OK') {
         try {
-            return res.writeStatus(status).end(data, true);
+            return res.cork(() => res.writeStatus(status).end(data, true));
         } catch (e) {
             Log.warningTitle('Response could not be sent');
             Log.warning(e);
