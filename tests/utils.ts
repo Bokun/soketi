@@ -45,7 +45,7 @@ export class Utils {
             'appManager.array.apps.0.maxClientEventsPerSecond': 200,
             'appManager.array.apps.0.maxReadRequestsPerSecond': 200,
             'metrics.enabled': true,
-            'appManager.mysql.useMysql2': true,
+            'appManager.mysql.useMysql2': false,
             'cluster.port': parseInt((Math.random() * (20000 - 10000) + 10000).toString()), // random: 10000-20000
             'appManager.dynamodb.endpoint': 'http://127.0.0.1:8000',
             'cluster.ignoreProcess': false,
