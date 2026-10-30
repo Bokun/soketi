@@ -1,5 +1,5 @@
 import * as prom from 'prom-client';
-import { WebSocket } from 'uWebSockets.js';
+import { WebSocket } from '../uws';
 import { MetricsInterface } from './metrics-interface';
 import { Server } from '../server';
 import { Utils } from '../utils';

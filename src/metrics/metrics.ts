@@ -1,5 +1,5 @@
 import * as prom from 'prom-client';
-import { WebSocket } from 'uWebSockets.js';
+import { WebSocket } from '../uws';
 import { Log } from './../log';
 import { MetricsInterface } from './metrics-interface';
 import { PrometheusMetricsDriver } from './prometheus-metrics-driver';

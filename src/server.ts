@@ -16,7 +16,7 @@ import { RateLimiterInterface } from './rate-limiters/rate-limiter-interface';
 import { uWebSocketMessage } from './message';
 import { v4 as uuidv4 } from 'uuid';
 import { WebhookSender } from './webhook-sender';
-import { WebSocket } from 'uWebSockets.js';
+import { WebSocket } from './uws';
 import { WsHandler } from './ws-handler';
 
 const Discover = require('node-discover');
