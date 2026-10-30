@@ -1,7 +1,6 @@
 import { JobData } from '../webhook-sender';
 import { Log } from '../log';
 import { QueueInterface } from './queue-interface';
-import { RedisQueueDriver } from './redis-queue-driver';
 import { SqsQueueDriver } from './sqs-queue-driver';
 import { SyncQueueDriver } from './sync-queue-driver';
 import { Server } from '../server';
@@ -18,8 +17,6 @@ export class Queue implements QueueInterface {
     constructor(protected server: Server) {
         if (server.options.queue.driver === 'sync') {
             this.driver = new SyncQueueDriver(server);
-        } else if (server.options.queue.driver === 'redis') {
-            this.driver = new RedisQueueDriver(server);
         } else if (server.options.queue.driver === 'sqs') {
             this.driver = new SqsQueueDriver(server);
         } else {
