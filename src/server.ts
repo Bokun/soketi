@@ -14,13 +14,13 @@ import { QueueInterface } from './queues/queue-interface';
 import { RateLimiter } from './rate-limiters/rate-limiter';
 import { RateLimiterInterface } from './rate-limiters/rate-limiter-interface';
 import { uWebSocketMessage } from './message';
+import { Utils } from './utils';
 import { v4 as uuidv4 } from 'uuid';
 import { WebhookSender } from './webhook-sender';
 import { WebSocket } from './uws';
 import { WsHandler } from './ws-handler';
 
 const Discover = require('node-discover');
-const queryString = require('query-string');
 const uWS = require('uWebSockets.js');
 
 export class Server {
@@ -654,7 +654,7 @@ export class Server {
 
                 server.get(this.url('/apps/:appId/channels'), (res, req) => {
                     res.params = { appId: req.getParameter(0) };
-                    res.query = queryString.parse(req.getQuery());
+                    res.query = Utils.parseQuery(req.getQuery());
                     res.method = req.getMethod().toUpperCase();
                     res.url = req.getUrl();
 
@@ -663,7 +663,7 @@ export class Server {
 
                 server.get(this.url('/apps/:appId/channels/:channelName'), (res, req) => {
                     res.params = { appId: req.getParameter(0), channel: req.getParameter(1) };
-                    res.query = queryString.parse(req.getQuery());
+                    res.query = Utils.parseQuery(req.getQuery());
                     res.method = req.getMethod().toUpperCase();
                     res.url = req.getUrl();
 
@@ -672,7 +672,7 @@ export class Server {
 
                 server.get(this.url('/apps/:appId/channels/:channelName/users'), (res, req) => {
                     res.params = { appId: req.getParameter(0), channel: req.getParameter(1) };
-                    res.query = queryString.parse(req.getQuery());
+                    res.query = Utils.parseQuery(req.getQuery());
                     res.method = req.getMethod().toUpperCase();
                     res.url = req.getUrl();
 
@@ -681,7 +681,7 @@ export class Server {
 
                 server.post(this.url('/apps/:appId/events'), (res, req) => {
                     res.params = { appId: req.getParameter(0) };
-                    res.query = queryString.parse(req.getQuery());
+                    res.query = Utils.parseQuery(req.getQuery());
                     res.method = req.getMethod().toUpperCase();
                     res.url = req.getUrl();
 
@@ -690,7 +690,7 @@ export class Server {
 
                 server.post(this.url('/apps/:appId/batch_events'), (res, req) => {
                     res.params = { appId: req.getParameter(0) };
-                    res.query = queryString.parse(req.getQuery());
+                    res.query = Utils.parseQuery(req.getQuery());
                     res.method = req.getMethod().toUpperCase();
                     res.url = req.getUrl();
 
@@ -699,7 +699,7 @@ export class Server {
 
                 server.post(this.url('/apps/:appId/users/:userId/terminate_connections'), (res, req) => {
                     res.params = { appId: req.getParameter(0), userId: req.getParameter(1) };
-                    res.query = queryString.parse(req.getQuery());
+                    res.query = Utils.parseQuery(req.getQuery());
                     res.method = req.getMethod().toUpperCase();
                     res.url = req.getUrl();
 
@@ -729,7 +729,7 @@ export class Server {
 
             if (this.options.metrics.enabled) {
                 metricsServer.get(this.url('/metrics'), (res, req) => {
-                    res.query = queryString.parse(req.getQuery());
+                    res.query = Utils.parseQuery(req.getQuery());
 
                     return this.httpHandler.metrics(res);
                 });

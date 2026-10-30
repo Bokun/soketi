@@ -132,4 +132,18 @@ export class Utils {
     static restrictedChannelName(name: string) {
         return /^#?[-a-zA-Z0-9_=@,.;]+$/.test(name) === false;
     }
+
+    /**
+     * Parse a query string the same way the query-string package did:
+     * values are decoded ("+" as a space) and a repeated key becomes an array.
+     */
+    static parseQuery(query: string): { [key: string]: string|string[] } {
+        let result = {};
+
+        for (let [key, value] of new URLSearchParams(query)) {
+            result[key] = result[key] === undefined ? value : [].concat(result[key], value);
+        }
+
+        return result;
+    }
 }
