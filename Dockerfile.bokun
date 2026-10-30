@@ -1,0 +1,40 @@
+ARG NODE_IMAGE=node:22.23.4-trixie-slim
+
+FROM ${NODE_IMAGE} AS build
+
+# git is needed to fetch uWebSockets.js, which is a git dependency
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+
+COPY . .
+RUN npm run build \
+    && npm prune --omit=dev \
+    && find node_modules/uWebSockets.js -name 'uws_*.node' ! -name 'uws_linux_*' -delete \
+    && mkdir -p /app \
+    && cp -r bin/ dist/ node_modules/ LICENSE package.json package-lock.json /app/
+
+FROM ${NODE_IMAGE}
+
+LABEL org.opencontainers.image.source="https://github.com/Bokun/soketi"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
+
+# curl is used by container health checks (curl -f http://127.0.0.1:6001/ready)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /app /app
+
+WORKDIR /app
+
+USER node
+
+EXPOSE 6001
+
+ENTRYPOINT ["node", "/app/bin/server.js", "start"]
