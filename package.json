@@ -25,7 +25,7 @@
     "arraybuffer-to-string": "^1.0.2",
     "async": "^3.2.4",
     "aws-sdk": "^2.1426.0",
-    "axios": "^0.27.2",
+    "axios": "1.20.0",
     "boolean": "^3.1.4",
     "colors": "1.4.0",
     "dot-wild": "^3.0.1",
@@ -78,6 +78,9 @@
     "test": "jest --detectOpenHandles --forceExit --silent",
     "test:local": "jest --detectOpenHandles --forceExit --verbose",
     "test:watch": "npm test -- --watch"
+  },
+  "overrides": {
+    "follow-redirects": "1.16.1"
   },
   "bin": {
     "soketi": "bin/server.js"
