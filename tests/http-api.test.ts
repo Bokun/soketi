@@ -35,337 +35,67 @@ describe('http api test', () => {
         });
     });
 
-    test('get api channels', done => {
-        Utils.newServer({}, (server: Server) => {
-            let client1 = Utils.newClient();
-            let backend = Utils.newBackend();
-            let channelName = Utils.randomChannelName();
-
-            client1.connection.bind('connected', () => {
-                let channel = client1.subscribe(channelName);
-
-                channel.bind('pusher:subscription_succeeded', () => {
-                    backend.get({ path: '/channels' }).then(res => res.json()).then(body => {
-                        expect(body.channels[channelName]).toBeDefined();
-                        expect(body.channels[channelName].subscription_count).toBe(1);
-                        expect(body.channels[channelName].occupied).toBe(true);
-
-                        let client2 = Utils.newClient();
-
-                        client2.connection.bind('connected', () => {
-                            let channel = client2.subscribe(channelName);
-
-                            channel.bind('pusher:subscription_succeeded', () => {
-                                backend.get({ path: '/channels' }).then(res => res.json()).then(body => {
-                                    expect(body.channels[channelName]).toBeDefined();
-                                    expect(body.channels[channelName].subscription_count).toBe(2);
-                                    expect(body.channels[channelName].occupied).toBe(true);
-
-                                    client1.connection.bind('disconnected', () => {
-                                        client2.disconnect();
-                                    });
-
-                                    client2.connection.bind('disconnected', () => {
-                                        backend.get({ path: '/channels' }).then(res => res.json()).then(body => {
-                                            expect(body.channels[channelName]).toBeUndefined();
-                                            done();
-                                        });
-                                    });
-
-                                    client1.disconnect();
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    });
-
-    test('get api channel', done => {
-        Utils.newServer({}, (server: Server) => {
-            let client1 = Utils.newClient();
-            let backend = Utils.newBackend();
-            let channelName = Utils.randomChannelName();
-
-            client1.connection.bind('connected', () => {
-                let channel = client1.subscribe(channelName);
-
-                channel.bind('pusher:subscription_succeeded', () => {
-                    backend.get({ path: '/channels/' + channelName }).then(res => res.json()).then(body => {
-                        expect(body.subscription_count).toBe(1);
-                        expect(body.occupied).toBe(true);
-
-                        let client2 = Utils.newClient();
-
-                        client2.connection.bind('connected', () => {
-                            let channel = client2.subscribe(channelName);
-
-                            channel.bind('pusher:subscription_succeeded', () => {
-                                backend.get({ path: '/channels/' + channelName }).then(res => res.json()).then(body => {
-                                    expect(body.subscription_count).toBe(2);
-                                    expect(body.occupied).toBe(true);
-
-                                    client1.connection.bind('disconnected', () => {
-                                        client2.disconnect();
-                                    });
-
-                                    client2.connection.bind('disconnected', () => {
-                                        backend.get({ path: '/channels/' + channelName }).then(res => res.json()).then(body => {
-                                            expect(body.subscription_count).toBe(0);
-                                            expect(body.occupied).toBe(false);
-                                            done();
-                                        });
-                                    });
-
-                                    client1.disconnect();
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    });
-
-    test('get api presence channel', done => {
-        let user1 = {
-            user_id: 1,
-            user_info: {
-                id: 1,
-                name: 'John',
-            },
-        };
-
-        let user2 = {
-            user_id: 2,
-            user_info: {
-                id: 2,
-                name: 'Alice',
-            },
-        };
-
-        Utils.newServer({}, (server: Server) => {
-            let client1 = Utils.newClientForPresenceUser(user1);
-            let backend = Utils.newBackend();
-            let channelName = `presence-${Utils.randomChannelName()}`;
-
-            client1.connection.bind('connected', () => {
-                let channel = client1.subscribe(channelName);
-
-                channel.bind('pusher:subscription_succeeded', () => {
-                    backend.get({ path: '/channels/' + channelName }).then(res => res.json()).then(body => {
-                        expect(body.subscription_count).toBe(1);
-                        expect(body.occupied).toBe(true);
-
-                        let client2 = Utils.newClientForPresenceUser(user2);
-
-                        client2.connection.bind('connected', () => {
-                            let channel = client2.subscribe(channelName);
-
-                            channel.bind('pusher:subscription_succeeded', () => {
-                                backend.get({ path: '/channels/' + channelName }).then(res => res.json()).then(body => {
-                                    expect(body.subscription_count).toBe(2);
-                                    expect(body.user_count).toBe(2);
-                                    expect(body.occupied).toBe(true);
-
-                                    client1.connection.bind('disconnected', () => {
-                                        client2.disconnect();
-                                    });
-
-                                    client2.connection.bind('disconnected', () => {
-                                        backend.get({ path: '/channels/' + channelName }).then(res => res.json()).then(body => {
-                                            expect(body.subscription_count).toBe(0);
-                                            expect(body.user_count).toBe(0);
-                                            expect(body.occupied).toBe(false);
-                                            done();
-                                        });
-                                    });
-
-                                    client1.disconnect();
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    });
-
-    test('get api presence users', done => {
-        let user1 = {
-            user_id: 1,
-            user_info: {
-                id: 1,
-                name: 'John',
-            },
-        };
-
-        let user2 = {
-            user_id: 2,
-            user_info: {
-                id: 2,
-                name: 'Alice',
-            },
-        };
-
-        Utils.newServer({}, (server: Server) => {
-            let client1 = Utils.newClientForPresenceUser(user1);
-            let backend = Utils.newBackend();
-            let channelName = `presence-${Utils.randomChannelName()}`;
-
-            client1.connection.bind('connected', () => {
-                let channel = client1.subscribe(channelName);
-
-                channel.bind('pusher:subscription_succeeded', () => {
-                    backend.get({ path: '/channels/' + channelName + '/users' }).then(res => res.json()).then(body => {
-                        expect(body.users.length).toBe(1);
-
-                        let client2 = Utils.newClientForPresenceUser(user2);
-
-                        client2.connection.bind('connected', () => {
-                            let channel = client2.subscribe(channelName);
-
-                            channel.bind('pusher:subscription_succeeded', () => {
-                                backend.get({ path: '/channels/' + channelName + '/users' }).then(res => res.json()).then(body => {
-                                    expect(body.users.length).toBe(2);
-
-                                    client1.connection.bind('disconnected', () => {
-                                        client2.disconnect();
-                                    });
-
-                                    client2.connection.bind('disconnected', () => {
-                                        backend.get({ path: '/channels/' + channelName + '/users' }).then(res => res.json()).then(body => {
-                                            expect(body.users.length).toBe(0);
-                                            done();
-                                        });
-                                    });
-
-                                    client1.disconnect();
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    });
-
-    test('presence channel users should count only once for same-user multiple connections', done => {
-        let user = {
-            user_id: 1,
-            user_info: {
-                id: 1,
-                name: 'John',
-            },
-        };
-
-        Utils.newServer({}, (server: Server) => {
-            let client1 = Utils.newClientForPresenceUser(user);
-            let backend = Utils.newBackend();
-            let channelName = `presence-${Utils.randomChannelName()}`;
-
-            client1.connection.bind('connected', () => {
-                let channel = client1.subscribe(channelName);
-
-                channel.bind('pusher:subscription_succeeded', () => {
-                    backend.get({ path: '/channels/' + channelName + '/users' }).then(res => res.json()).then(body => {
-                        expect(body.users.length).toBe(1);
-
-                        let client2 = Utils.newClientForPresenceUser(user);
-
-                        client2.connection.bind('connected', () => {
-                            let channel = client2.subscribe(channelName);
-
-                            channel.bind('pusher:subscription_succeeded', () => {
-                                backend.get({ path: '/channels/' + channelName + '/users' }).then(res => res.json()).then(body => {
-                                    expect(body.users.length).toBe(1);
-
-                                    client1.connection.bind('disconnected', () => {
-                                        client2.disconnect();
-                                    });
-
-                                    client2.connection.bind('disconnected', () => {
-                                        backend.get({ path: '/channels/' + channelName + '/users' }).then(res => res.json()).then(body => {
-                                            expect(body.users.length).toBe(0);
-                                            done();
-                                        });
-                                    });
-
-                                    client1.disconnect();
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    });
-
-    test('sends batch events', done => {
-        Utils.newServer({}, (server: Server) => {
-            let client = Utils.newClient();
-            let backend = Utils.newBackend();
-            let channelName = Utils.randomChannelName();
-
-            client.connection.bind('connected', () => {
-                let channel = client.subscribe(channelName);
-                let receivedMessages = 0;
-
-                channel.bind('greeting', e => {
-                    expect(e.message).toBe('hello');
-                    expect(e.weirdVariable).toBe('abc/d');
-
-                    receivedMessages++;
-
-                    if (receivedMessages === 3) {
-                        client.disconnect();
-                        done();
-                    }
-                });
-
-                channel.bind('pusher:subscription_succeeded', () => {
-                    backend.triggerBatch([
-                        { name: 'greeting', channel: channelName, data: { message: 'hello', weirdVariable: 'abc/d' } },
-                        { name: 'greeting', channel: channelName, data: { message: 'hello', weirdVariable: 'abc/d' } },
-                        { name: 'greeting', channel: channelName, data: { message: 'hello', weirdVariable: 'abc/d' } },
-                    ]).catch(error => {
-                        throw new Error(error);
-                    });
-                });
-            });
-        });
-    });
-
     test('passing an inexistent app id will return 404', done => {
         Utils.newServer({}, (server: Server) => {
             let backend = Utils.newBackend('inexistent-app-id');
 
-            backend.get({ path: '/channels' }).then(res => res.json()).then(body => {
-                expect(body.error).toBeDefined();
-                expect(body.code).toBe(404);
+            backend.trigger('ch1', 'greeting', { message: 'hello' }).then(() => {
+                throw new Error('The request must be refused.');
+            }, err => {
+                expect(err.status).toBe(404);
+                expect(JSON.parse(err.body).code).toBe(404);
                 done();
             });
         });
     });
 
-    test('a non-presence channel cannot read users', done => {
+    test('a wrong secret returns 401', done => {
         Utils.newServer({}, (server: Server) => {
-            let client = Utils.newClient();
-            let channelName = Utils.randomChannelName();
+            let backend = Utils.newBackend('app-id', 'app-key', 'invalidSecret');
+
+            backend.trigger('ch1', 'greeting', { message: 'hello' }).then(() => {
+                throw new Error('The request must be refused.');
+            }, err => {
+                expect(err.status).toBe(401);
+                expect(JSON.parse(err.body).code).toBe(401);
+                done();
+            });
+        });
+    });
+
+    test('a successful trigger returns 200 with the CORS headers', done => {
+        Utils.newServer({}, (server: Server) => {
             let backend = Utils.newBackend();
 
-            client.connection.bind('connected', () => {
-                let channel = client.subscribe(channelName);
+            backend.trigger('ch1', 'greeting', { message: 'hello' }).then(res => {
+                expect(res.status).toBe(200);
+                expect(res.headers.get('access-control-allow-origin')).toBe('*');
+                done();
+            });
+        });
+    });
 
-                channel.bind('pusher:subscription_succeeded', () => {
-                    backend.get({ path: '/channels/' + channelName + '/users' }).then(res => res.json()).then(body => {
-                        expect(body.error).toBeDefined();
-                        expect(body.code).toBe(400);
-                        client.disconnect();
-                        done();
-                    });
+    test('the endpoints the Bokun fork removed return 404', done => {
+        Utils.newServer({}, (server: Server) => {
+            let backend = Utils.newBackend();
+
+            Promise.allSettled([
+                backend.get({ path: '/channels' }),
+                backend.get({ path: '/channels/ch1' }),
+                backend.get({ path: '/channels/presence-ch1/users' }),
+                backend.triggerBatch([{ name: 'greeting', channel: 'ch1', data: { message: 'hello' } }]),
+                backend.terminateUserConnections('1'),
+                axios.get('http://127.0.0.1:6001/accept-traffic'),
+            ]).then(results => {
+                results.forEach(result => {
+                    expect(result.status).toBe('rejected');
+
+                    let reason = (result as PromiseRejectedResult).reason;
+
+                    expect(reason.status || reason.response.status).toBe(404);
                 });
+
+                done();
             });
         });
     });
@@ -397,8 +127,10 @@ describe('http api test', () => {
                         message: 'hello',
                         array: ['we', 'support', 'array'],
                         objects: { works: true },
-                    }).catch(error => {
-                        throw new Error(error);
+                    }).then(() => {
+                        throw new Error('The bad backend must be refused.');
+                    }, err => {
+                        expect(err.status).toBe(401);
                     });
 
                     goodBackend.trigger(channelName, 'greeting-from-good', {
@@ -418,14 +150,12 @@ describe('http api test', () => {
             let backend = Utils.newBackend();
 
             backend.trigger(['ch1', 'ch2'], 'greeting', { message: 'hello' })
-                .then(res => res.json())
-                .then(res => {
-                    expect(res.error).toBeDefined();
-                    expect(res.code).toBe(400);
+                .then(() => {
+                    throw new Error('The request must be refused.');
+                }, err => {
+                    expect(err.status).toBe(400);
+                    expect(JSON.parse(err.body).code).toBe(400);
                     done();
-                })
-                .catch(error => {
-                    throw new Error(error);
                 });
         });
     });
@@ -435,14 +165,12 @@ describe('http api test', () => {
             let backend = Utils.newBackend();
 
             backend.trigger('ch1', 'greeting', { message: 'hello' })
-                .then(res => res.json())
-                .then(res => {
-                    expect(res.error).toBeDefined();
-                    expect(res.code).toBe(400);
+                .then(() => {
+                    throw new Error('The request must be refused.');
+                }, err => {
+                    expect(err.status).toBe(400);
+                    expect(JSON.parse(err.body).code).toBe(400);
                     done();
-                })
-                .catch(error => {
-                    throw new Error(error);
                 });
         });
     });
@@ -452,14 +180,12 @@ describe('http api test', () => {
             let backend = Utils.newBackend();
 
             backend.trigger('ch1', 'greeting', { message: 'hello' })
-                .then(res => res.json())
-                .then(res => {
-                    expect(res.error).toBeDefined();
-                    expect(res.code).toBe(413);
+                .then(() => {
+                    throw new Error('The request must be refused.');
+                }, err => {
+                    expect(err.status).toBe(413);
+                    expect(JSON.parse(err.body).code).toBe(413);
                     done();
-                })
-                .catch(error => {
-                    throw new Error(error);
                 });
         });
     });
@@ -529,28 +255,6 @@ describe('http api test', () => {
         });
     });
 
-    Utils.shouldRun(Utils.appManagerIs('array'))('signin after connection with termination call', done => {
-        Utils.newServer({ 'appManager.array.apps.0.enableUserAuthentication': true, 'userAuthenticationTimeout': 5_000 }, (server: Server) => {
-            let client = Utils.newClientForPrivateChannel({}, 6001, 'app-key', { id: 1 });
-            let backend = Utils.newBackend();
-
-            client.connection.bind('connected', () => {
-                client.connection.bind('message', (payload) => {
-                    if (payload.event === 'pusher:error' && payload.data.code === 4009) {
-                        client.disconnect();
-                        done();
-                    }
-
-                    if (payload.event === 'pusher:signin_success') {
-                        backend.terminateUserConnections('1');
-                    }
-                });
-
-                client.signin();
-            });
-        });
-    });
-
     Utils.shouldRun(Utils.appManagerIs('array'))('broadcast to user', done => {
         Utils.newServer({ 'appManager.array.apps.0.enableUserAuthentication': true, 'userAuthenticationTimeout': 5_000 }, (server: Server) => {
             let client = Utils.newClientForPrivateChannel({}, 6001, 'app-key', { id: 1 });
@@ -569,47 +273,6 @@ describe('http api test', () => {
                 });
 
                 client.signin();
-            });
-        });
-    });
-
-    test('get api presence channel with filter_by_prefix', done => {
-        let user1 = {
-            user_id: 1,
-            user_info: {
-                id: 1,
-                name: 'John',
-            },
-        };
-
-        Utils.newServer({}, (server: Server) => {
-            let presenceClient = Utils.newClientForPresenceUser(user1);
-            let backend = Utils.newBackend();
-            let presenceChannelName = `presence-${Utils.randomChannelName()}`;
-
-            presenceClient.connection.bind('connected', () => {
-                let presenceChannel = presenceClient.subscribe(presenceChannelName);
-
-                presenceChannel.bind('pusher:subscription_succeeded', () => {
-                    let privateClient = Utils.newClientForPrivateChannel();
-                    let privateChannelName = `private-${Utils.randomChannelName()}`;
-
-                    privateClient.connection.bind('connected', () => {
-                        let privateChannel = privateClient.subscribe(privateChannelName);
-
-                        privateChannel.bind('pusher:subscription_succeeded', () => {
-                            backend.get({ path: '/channels', params: { filter_by_prefix: `presence-` } }).then(res => res.json()).then(body => {
-                                expect(body.channels[presenceChannelName]).toBeDefined();
-                                expect(body.channels[privateChannelName]).toBeUndefined();
-                                expect(body.channels[presenceChannelName].subscription_count).toBe(1);
-
-                                presenceClient.disconnect();
-                                privateClient.disconnect();
-                                done();
-                            });
-                        });
-                    });
-                });
             });
         });
     });

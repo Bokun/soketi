@@ -643,6 +643,10 @@ export class Server {
 
     /**
      * Configure the HTTP REST API server.
+     *
+     * Bókun: only the events endpoint is served. The channel, user, batch and
+     * terminate-connections endpoints and /accept-traffic are not used by our
+     * backends, so they are not exposed.
      */
     protected configureHttp(server: TemplatedApp): Promise<TemplatedApp> {
         return new Promise(resolve => {
@@ -650,35 +654,6 @@ export class Server {
             server.get(this.url('/ready'), (res, req) => this.httpHandler.ready(res));
 
             if (this.canProcessRequests()) {
-                server.get(this.url('/accept-traffic'), (res, req) => this.httpHandler.acceptTraffic(res));
-
-                server.get(this.url('/apps/:appId/channels'), (res, req) => {
-                    res.params = { appId: req.getParameter(0) };
-                    res.query = Utils.parseQuery(req.getQuery());
-                    res.method = req.getMethod().toUpperCase();
-                    res.url = req.getUrl();
-
-                    return this.httpHandler.channels(res);
-                });
-
-                server.get(this.url('/apps/:appId/channels/:channelName'), (res, req) => {
-                    res.params = { appId: req.getParameter(0), channel: req.getParameter(1) };
-                    res.query = Utils.parseQuery(req.getQuery());
-                    res.method = req.getMethod().toUpperCase();
-                    res.url = req.getUrl();
-
-                    return this.httpHandler.channel(res);
-                });
-
-                server.get(this.url('/apps/:appId/channels/:channelName/users'), (res, req) => {
-                    res.params = { appId: req.getParameter(0), channel: req.getParameter(1) };
-                    res.query = Utils.parseQuery(req.getQuery());
-                    res.method = req.getMethod().toUpperCase();
-                    res.url = req.getUrl();
-
-                    return this.httpHandler.channelUsers(res);
-                });
-
                 server.post(this.url('/apps/:appId/events'), (res, req) => {
                     res.params = { appId: req.getParameter(0) };
                     res.query = Utils.parseQuery(req.getQuery());
@@ -686,24 +661,6 @@ export class Server {
                     res.url = req.getUrl();
 
                     return this.httpHandler.events(res);
-                });
-
-                server.post(this.url('/apps/:appId/batch_events'), (res, req) => {
-                    res.params = { appId: req.getParameter(0) };
-                    res.query = Utils.parseQuery(req.getQuery());
-                    res.method = req.getMethod().toUpperCase();
-                    res.url = req.getUrl();
-
-                    return this.httpHandler.batchEvents(res);
-                });
-
-                server.post(this.url('/apps/:appId/users/:userId/terminate_connections'), (res, req) => {
-                    res.params = { appId: req.getParameter(0), userId: req.getParameter(1) };
-                    res.query = Utils.parseQuery(req.getQuery());
-                    res.method = req.getMethod().toUpperCase();
-                    res.url = req.getUrl();
-
-                    return this.httpHandler.terminateUserConnections(res);
                 });
             }
 

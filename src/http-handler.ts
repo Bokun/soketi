@@ -8,12 +8,6 @@ import { Log } from './log';
 
 const v8 = require('v8');
 
-export interface ChannelResponse {
-    subscription_count: number;
-    user_count?: number;
-    occupied: boolean;
-}
-
 export interface MessageCheckError {
     message: string;
     code: number;
@@ -37,41 +31,6 @@ export class HttpHandler {
             } else {
                 this.send(res, 'OK');
             }
-        });
-    }
-
-    acceptTraffic(res: HttpResponse) {
-        this.attachMiddleware(res, [
-            this.corsMiddleware,
-        ]).then(res => {
-            if (this.server.closing) {
-                return this.serverErrorResponse(res, 'The server is closing. Choose another server. :)');
-            }
-
-            let threshold = this.server.options.httpApi.acceptTraffic.memoryThreshold;
-
-            let {
-                rss,
-                heapTotal,
-                external,
-                arrayBuffers,
-            } = process.memoryUsage();
-
-            let totalSize = v8.getHeapStatistics().total_available_size;
-            let usedSize = rss + heapTotal + external + arrayBuffers;
-            let percentUsage = (usedSize / totalSize) * 100;
-
-            if (threshold < percentUsage) {
-                return this.serverErrorResponse(res, 'Low on memory here. Choose another server. :)');
-            }
-
-            this.sendJson(res, {
-                memory: {
-                    usedSize,
-                    totalSize,
-                    percentUsage,
-                },
-            });
         });
     }
 
@@ -139,130 +98,6 @@ export class HttpHandler {
         });
     }
 
-    channels(res: HttpResponse) {
-        this.attachMiddleware(res, [
-            this.corkMiddleware,
-            this.corsMiddleware,
-            this.appMiddleware,
-            this.authMiddleware,
-            this.readRateLimitingMiddleware,
-        ]).then(res => {
-            this.server.adapter.getChannelsWithSocketsCount(res.params.appId).then(channels => {
-                let response: { [channel: string]: ChannelResponse } = [...channels].reduce((channels, [channel, connections]) => {
-                    if (connections === 0) {
-                        return channels;
-                    }
-
-                    // In case ?filter_by_prefix= is specified, the channel must start with that prefix.
-                    if (res.query.filter_by_prefix && !channel.startsWith(res.query.filter_by_prefix)) {
-                        return channels;
-                    }
-
-                    channels[channel] = {
-                        subscription_count: connections,
-                        occupied: true,
-                    };
-
-                    return channels;
-                }, {});
-
-                return response;
-            }).catch(err => {
-                Log.error(err);
-
-                return this.serverErrorResponse(res, 'A server error has occurred.');
-            }).then(channels => {
-                let broadcastMessage = { channels };
-
-                this.server.metricsManager.markApiMessage(res.params.appId, {}, broadcastMessage);
-
-                this.sendJson(res, broadcastMessage);
-            });
-        });
-    }
-
-    channel(res: HttpResponse) {
-        this.attachMiddleware(res, [
-            this.corkMiddleware,
-            this.corsMiddleware,
-            this.appMiddleware,
-            this.authMiddleware,
-            this.readRateLimitingMiddleware,
-        ]).then(res => {
-            let response: ChannelResponse;
-
-            this.server.adapter.getChannelSocketsCount(res.params.appId, res.params.channel).then(socketsCount => {
-                response = {
-                    subscription_count: socketsCount,
-                    occupied: socketsCount > 0,
-                };
-
-                // For presence channels, attach an user_count.
-                // Avoid extra call to get channel members if there are no sockets.
-                if (res.params.channel.startsWith('presence-')) {
-                    response.user_count = 0;
-
-                    if (response.subscription_count > 0) {
-                        this.server.adapter.getChannelMembersCount(res.params.appId, res.params.channel).then(membersCount => {
-                            let broadcastMessage = {
-                                ...response,
-                                ...{
-                                    user_count: membersCount,
-                                },
-                            };
-
-                            this.server.metricsManager.markApiMessage(res.params.appId, {}, broadcastMessage);
-
-                            this.sendJson(res, broadcastMessage);
-                        }).catch(err => {
-                            Log.error(err);
-
-                            return this.serverErrorResponse(res, 'A server error has occurred.');
-                        });
-
-                        return;
-                    }
-                }
-
-                this.server.metricsManager.markApiMessage(res.params.appId, {}, response);
-
-                return this.sendJson(res, response);
-            }).catch(err => {
-                Log.error(err);
-
-                return this.serverErrorResponse(res, 'A server error has occurred.');
-            });
-        });
-    }
-
-    channelUsers(res: HttpResponse) {
-        this.attachMiddleware(res, [
-            this.corkMiddleware,
-            this.corsMiddleware,
-            this.appMiddleware,
-            this.authMiddleware,
-            this.readRateLimitingMiddleware,
-        ]).then(res => {
-            if (!res.params.channel.startsWith('presence-')) {
-                return this.badResponse(res, 'The channel must be a presence channel.');
-            }
-
-            this.server.adapter.getChannelMembers(res.params.appId, res.params.channel).then(members => {
-                let broadcastMessage = {
-                    users: [...members].map(([user_id, user_info]) => {
-                        return res.query.with_user_info === '1'
-                            ? { id: user_id, user_info }
-                            : { id: user_id };
-                    }),
-                };
-
-                this.server.metricsManager.markApiMessage(res.params.appId, {}, broadcastMessage);
-
-                this.sendJson(res, broadcastMessage);
-            });
-        });
-    }
-
     events(res: HttpResponse) {
         this.attachMiddleware(res, [
             this.corkMiddleware,
@@ -283,47 +118,6 @@ export class HttpHandler {
                     this.entityTooLargeResponse(res, error.message);
                 }
             });
-        });
-    }
-
-    batchEvents(res: HttpResponse) {
-        this.attachMiddleware(res, [
-            this.jsonBodyMiddleware,
-            this.corsMiddleware,
-            this.appMiddleware,
-            this.authMiddleware,
-            this.broadcastBatchEventsRateLimitingMiddleware,
-        ]).then(res => {
-            let batch = res.body.batch as PusherApiMessage[];
-
-            // Make sure the batch size is not too big.
-            if (batch.length > res.app.maxEventBatchSize) {
-                return this.badResponse(res, `Cannot batch-send more than ${res.app.maxEventBatchSize} messages at once`);
-            }
-
-            Promise.all(batch.map(message => this.checkMessageToBroadcast(message, res.app as App))).then(messages => {
-                messages.forEach(message => this.broadcastMessage(message, res.app.id));
-                this.server.metricsManager.markApiMessage(res.app.id, res.body, { ok: true });
-                this.sendJson(res, { ok: true });
-            }).catch((error: MessageCheckError) => {
-                if (error.code === 400) {
-                    this.badResponse(res, error.message);
-                } else if (error.code === 413) {
-                    this.entityTooLargeResponse(res, error.message);
-                }
-            });
-        });
-    }
-
-    terminateUserConnections(res: HttpResponse) {
-        this.attachMiddleware(res, [
-            this.jsonBodyMiddleware,
-            this.corsMiddleware,
-            this.appMiddleware,
-            this.authMiddleware,
-        ]).then(res => {
-            this.server.adapter.terminateUserConnections(res.app.id, res.params.userId);
-            this.sendJson(res, { ok: true });
         });
     }
 
@@ -396,8 +190,6 @@ export class HttpHandler {
 
     notFound(res: HttpResponse) {
         try {
-            res.writeStatus('404 Not Found');
-
             this.attachMiddleware(res, [
                 this.corkMiddleware,
                 this.corsMiddleware,
@@ -456,9 +248,9 @@ export class HttpHandler {
     }
 
     protected corsMiddleware(res: HttpResponse, next: CallableFunction): any {
-        res.writeHeader('Access-Control-Allow-Origin', this.server.options.cors.origin.join(', '));
-        res.writeHeader('Access-Control-Allow-Methods', this.server.options.cors.methods.join(', '));
-        res.writeHeader('Access-Control-Allow-Headers', this.server.options.cors.allowedHeaders.join(', '));
+        this.addHeader(res, 'Access-Control-Allow-Origin', this.server.options.cors.origin.join(', '));
+        this.addHeader(res, 'Access-Control-Allow-Methods', this.server.options.cors.methods.join(', '));
+        this.addHeader(res, 'Access-Control-Allow-Headers', this.server.options.cors.allowedHeaders.join(', '));
 
         next(null, res);
     }
@@ -485,47 +277,13 @@ export class HttpHandler {
         });
     }
 
-    protected readRateLimitingMiddleware(res: HttpResponse, next: CallableFunction): any {
-        this.server.rateLimiter.consumeReadRequestsPoints(1, res.app).then(response => {
-            if (response.canContinue) {
-                for (let header in response.headers) {
-                    res.writeHeader(header, '' + response.headers[header]);
-                }
-
-                return next(null, res);
-            }
-
-            this.tooManyRequestsResponse(res);
-        });
-    }
-
     protected broadcastEventRateLimitingMiddleware(res: HttpResponse, next: CallableFunction): any {
         let channels = res.body.channels || [res.body.channel];
 
         this.server.rateLimiter.consumeBackendEventPoints(Math.max(channels.length, 1), res.app).then(response => {
             if (response.canContinue) {
                 for (let header in response.headers) {
-                    res.writeHeader(header, '' + response.headers[header]);
-                }
-
-                return next(null, res);
-            }
-
-            this.tooManyRequestsResponse(res);
-        });
-    }
-
-    protected broadcastBatchEventsRateLimitingMiddleware(res: HttpResponse, next: CallableFunction): any {
-        let rateLimiterPoints = res.body.batch.reduce((rateLimiterPoints, event) => {
-            let channels: string[] = event.channels || [event.channel];
-
-            return rateLimiterPoints += channels.length;
-        }, 0);
-
-        this.server.rateLimiter.consumeBackendEventPoints(rateLimiterPoints, res.app).then(response => {
-            if (response.canContinue) {
-                for (let header in response.headers) {
-                    res.writeHeader(header, '' + response.headers[header]);
+                    this.addHeader(res, header, '' + response.headers[header]);
                 }
 
                 return next(null, res);
@@ -634,9 +392,30 @@ export class HttpHandler {
         });
     }
 
+    /**
+     * Queue a header for the response. uWebSockets.js sends "200 OK" as soon as a
+     * header is written, so headers are held back until the status is known.
+     */
+    protected addHeader(res: HttpResponse, name: string, value: string): void {
+        res.pendingHeaders = res.pendingHeaders || [];
+        res.pendingHeaders.push([name, value]);
+    }
+
+    protected writeStatusAndHeaders(res: HttpResponse, status: RecognizedString): HttpResponse {
+        res.writeStatus(status);
+
+        for (let [name, value] of res.pendingHeaders || []) {
+            res.writeHeader(name, value);
+        }
+
+        res.pendingHeaders = [];
+
+        return res;
+    }
+
     protected sendJson(res: HttpResponse, data: any, status: RecognizedString = '200 OK') {
         try {
-            return res.cork(() => res.writeStatus(status)
+            return res.cork(() => this.writeStatusAndHeaders(res, status)
                 .writeHeader('Content-Type', 'application/json')
                 .end(JSON.stringify(data), true));
         } catch (e) {
@@ -647,7 +426,7 @@ export class HttpHandler {
 
     protected send(res: HttpResponse, data: RecognizedString, status: RecognizedString = '200 OK') {
         try {
-            return res.cork(() => res.writeStatus(status).end(data, true));
+            return res.cork(() => this.writeStatusAndHeaders(res, status).end(data, true));
         } catch (e) {
             Log.warningTitle('Response could not be sent');
             Log.warning(e);
